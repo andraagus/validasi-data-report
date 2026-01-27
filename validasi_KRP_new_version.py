@@ -11,15 +11,17 @@ from tqdm import tqdm
 def check_blank(series):
     return series.isna() | (series.astype(str).str.strip() == "")
 
-def check_alphanumeric(series):
+def validate_alphanumeric(series):
     # Menggunakan regex vektorisasi pandas
     return series.astype(str).str.match(r'^[a-zA-Z0-9]+$')
 
-def check_numeric_only(series):
+def validate_numeric_only(series):
     return series.astype(str).str.match(r'^\d+$')
 
-def check_not_equal(series, value):
+def validate_not_equal(series, value):
     return series.astype(str) != value
+def validate_not_blank(series):
+    return series.isna() | (series.astype(str).str.strip() == "")
 
 # ==========================================
 # STEP 2: PROSES UTAMA
@@ -40,7 +42,8 @@ def run_validation():
     df = pd.read_excel(input_file, dtype=str)
     
     # Bersihkan spasi
-    df = df.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
+    for col in df.columns:
+        df[col] = df[col].astype(str).str.strip().replace(['nan', 'NaN', 'None'], '')
 
     # Dictionary untuk menampung pesan error sementara
     # Kita gunakan list of series agar bisa digabungkan di akhir
@@ -49,46 +52,37 @@ def run_validation():
 
     print("Melakukan validasi vectorized (Sangat Cepat)...")
 
-    # --- Validasi idPelapor ---
-    mask = check_blank(df['idPelapor'])
-    error_list.append(pd.Series(index=df.index, data="idPelapor kosong").where(mask, ""))
+    # Helper untuk menambah error ke list
+    def add_error(condition, message):
+        # condition: True jika ERROR
+        error_series = pd.Series("", index=df.index)
+        error_series[condition] = message
+        error_list.append(error_series)
 
-    # --- Validasi nomorRekening ---
-    mask_blank = check_blank(df['nomorRekening'])
-    mask_alpha = ~check_alphanumeric(df['nomorRekening']) & ~mask_blank
-    mask_dup = df['nomorRekening'].duplicated(keep=False)
+    # --- Validasi Kolom ---
+    add_error(validate_not_blank(df['idPelapor']), "idPelapor kosong")
     
-    error_list.append(pd.Series("nomorRekening kosong").where(mask_blank, ""))
-    error_list.append(pd.Series("nomorRekening harus alphanumeric").where(mask_alpha, ""))
-    error_list.append(pd.Series("nomorRekening duplikat").where(mask_dup, ""))
+    add_error(df['periodeLaporan'] != 'M', "periodeLaporan harus 'M'")
+    
+    # --- Validasi nomorRekening ---
+    add_error(validate_not_blank(df['nomorRekening']), "nomorRekening kosong")
+    add_error(~validate_alphanumeric(df['nomorRekening']) & (df['nomorRekening'] != ""), "nomorRekening harus alphanumeric")
+    add_error(df['nomorRekening'].duplicated(keep=False) & (df['nomorRekening'] != ""), "nomorRekening duplikat")
 
-    # --- Validasi Periode Laporan ---
-    mask_period = check_not_equal(df['periodeLaporan'], "M")
-    error_list.append(pd.Series("periodeLaporan harus 'M'").where(mask_period, ""))
-
-    # --- Validasi Tanggal (Vectorized Conversion) ---
+    # --- Validasi Tanggal (Gunakan variabel lokal untuk perbandingan) ---
     tgl_awal = pd.to_datetime(df['tanggalAkadAwal'], format='%Y-%m-%d', errors='coerce')
     tgl_akhir = pd.to_datetime(df['tanggalAkadAkhir'], format='%Y-%m-%d', errors='coerce')
     
-    mask_tgl_awal = tgl_awal.isna()
-    mask_tgl_urut = (tgl_akhir < tgl_awal) & tgl_awal.notna() & tgl_akhir.notna()
-    
-    error_list.append(pd.Series("tanggalAkadAwal format salah").where(mask_tgl_awal, ""))
-    error_list.append(pd.Series("tanggalAkadAkhir < tanggalAkadAwal").where(mask_tgl_urut, ""))
+    add_error(tgl_awal.isna() & (df['tanggalAkadAwal'] != ""), "tanggalAkadAwal format salah")
+    add_error((tgl_akhir < tgl_awal) & tgl_awal.notna() & tgl_akhir.notna(), "tanggalAkadAkhir < tanggalAkadAwal")
 
-    # --- Validasi Kolom Wajib Lainnya (Massal) ---
-    wajib_kolom = [
-        'idDebitur', 'jenisKreditPembiayaan', 'nomorAkadAwal', 'plafonAwal', 'kualitas'
-    ]
+    # --- Validasi Kolom Wajib (Batch) ---
+    wajib_kolom = ['idDebitur', 'jenisKreditPembiayaan', 'nomorAkadAwal', 'plafonAwal']
     for col in wajib_kolom:
-        if col in df.columns:
-            mask = check_blank(df[col])
-            error_list.append(pd.Series(f"{col} kosong").where(mask, ""))
+        add_error(validate_not_blank(df[col]), f"{col} kosong")
 
     # --- Validasi jenisValuta ---
-    mask_valuta = (df['jenisValuta'] != 'IDR') & ~check_blank(df['jenisValuta'])
-    error_list.append(pd.Series("jenisValuta harus IDR").where(mask_valuta, ""))
-
+    add_error((df['jenisValuta'] != 'IDR') & (df['jenisValuta'] != ""), "jenisValuta harus IDR")
     # ==========================================
     # STEP 3: MENGGABUNGKAN HASIL
     # ==========================================
