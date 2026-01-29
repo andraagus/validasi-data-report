@@ -53,7 +53,7 @@ def validate_jenisSukuBungaImbalan(series):
     valid_values = ['4', '3', '0', '2', '9', '5', '1']
     return ~series.isin(valid_values)
 
-def validate_programPemerintah(series):
+def validate_kode_program_pemerintah(series):
     valid_values = ['90', '24', '25', '10', '22', '30', '23', '21']
     return ~series.isin(valid_values)
 
@@ -119,19 +119,31 @@ def validate_tanggal_format(series):
     # Cek format tanggal YYYY-MM-DD
     return ~series.astype(str).str.match(r'^\d{4}-\d{2}-\d{2}$')
 
+def validate_kode_kondisi(series):
+    valid_values = ['00', '01', '02', '03', '04', '05', '06','07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17']
+    return ~series.isin(valid_values)   
+
+def validate_kode_sebab_macet(series):
+    valid_values = ['00', '01', '02', '03', '04', '05', '06','07', '08', '09', '10', '11', '99']
+    return ~series.isin(valid_values)   
+
+def validate_kode_cara_restrukturisasi(series):
+    valid_values = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18','19', '20','21','99']
+    return ~series.isin(valid_values)
+
 # ==========================================
 # STEP 2: PROSES UTAMA
 # ==========================================
 
 def run_validation():
     folder_path = os.path.dirname(os.path.abspath(__file__))
-    krp_files = [f for f in os.listdir(folder_path) if 'KRP' in f and f.endswith(('.xlsx', '.xls'))]
+    f01_files = [f for f in os.listdir(folder_path) if 'F01' in f and f.endswith(('.xlsx', '.xls'))]
 
-    if not krp_files:
-        print("Tidak ada file KRP ditemukan.")
+    if not f01_files:
+        print("Tidak ada file F01 ditemukan.")
         return
 
-    input_file = os.path.join(folder_path, krp_files[0])
+    input_file = os.path.join(folder_path, f01_files[0])
     print(f"Membaca file: {os.path.basename(input_file)}...")
     
     df = pd.read_excel(input_file, dtype=str)
@@ -146,88 +158,184 @@ def run_validation():
         error_series[condition] = message
         error_list.append(error_series)
 
-    print("Melakukan validasi vectorized (Sangat Cepat)...")
+    print("Proses validasi sedang berjalan...")
 
     # --- Validasi Dasar ---
-    add_error(validate_not_blank(df['idPelapor']), "idPelapor kosong")
-    add_error(df['periodeLaporan'] != 'M', "periodeLaporan harus 'M'")
+    add_error(validate_not_blank(df['No CIF Debitur']), "CIF Debitur kosong")
+    add_error(df['Flag Detail'] != 'D', "flagDetail harus 'D'")
     
     # --- nomorRekening ---
-    is_rek_blank = validate_not_blank(df['nomorRekening'])
+    is_rek_blank = validate_not_blank(df['No Rekening Fasilitas'])
     add_error(is_rek_blank, "nomorRekening kosong")
-    add_error(~validate_alphanumeric(df['nomorRekening']) & ~is_rek_blank, "nomorRekening harus alphanumeric")
-    add_error(df['nomorRekening'].duplicated(keep=False) & ~is_rek_blank, "nomorRekening duplikat")
+    add_error(~validate_alphanumeric(df['No Rekening Fasilitas']) & ~is_rek_blank, "nomorRekening harus alphanumeric")
+    add_error(df['No Rekening Fasilitas'].duplicated(keep=False) & ~is_rek_blank, "nomorRekening duplikat")
+
+    # --- kode sifat kredit ---
+    is_jkp_blank = validate_not_blank(df['Kode Sifat Kredit'])
+    add_error(is_jkp_blank, "Kode Sifat Kredit kosong")
+    add_error(validate_kode_sifat_kredit(df['Kode Sifat Kredit']) & ~is_jkp_blank, "Kode Sifat Kredit tidak valid")
+
 
     # --- jenisKreditPembiayaan ---
-    is_jkp_blank = validate_not_blank(df['jenisKreditPembiayaan'])
-    add_error(is_jkp_blank, "jenisKreditPembiayaan kosong")
-    add_error(validate_jenisKreditPembiayaan(df['jenisKreditPembiayaan']) & ~is_jkp_blank, "jenisKreditPembiayaan tidak valid")
+    is_jkp_blank = validate_not_blank(df['Kode Jenis Kredit'])
+    add_error(is_jkp_blank, "Kode Jenis Kredit kosong")
+    add_error(validate_kode_jenis_kredit(df['Kode Jenis Kredit']) & ~is_jkp_blank, "Kode Jenis Kredit tidak valid")
 
-    # --- kategoriUsahaDebitur ---
-    is_kud_blank = validate_not_blank(df['kategoriUsahaDebitur'])
-    add_error(is_kud_blank, "kategoriUsahaDebitur kosong")
-    add_error(validate_jenisusahanDebitur(df['kategoriUsahaDebitur']) & ~is_kud_blank, "kategoriUsahaDebitur tidak valid")
+    #-- vakidasi kode akad kredit ---
+    is_kak_blank = validate_not_blank(df['Kode Akad Kredit'])
+    add_error(is_kak_blank, "Kode Akad Kredit kosong")
+    add_error(~validate_alphanumeric(df['Kode Akad Kredit']) & ~is_kak_blank, "Kode Akad Kredit harus alphanumeric")
 
-    # --- jenisPenggunaan ---
-    is_jp_blank = validate_not_blank(df['jenisPenggunaan'])
-    add_error(is_jp_blank, "jenisPenggunaan kosong")  
-    add_error(validate_jenispenggunaan(df['jenisPenggunaan']) & ~is_jp_blank, "jenisPenggunaan tidak valid")
-
-    # --- orientasiPenggunaan ---
-    is_op_blank = validate_not_blank(df['orientasiPenggunaan'])
-    add_error(is_op_blank, "orientasiPenggunaan kosong")
-    add_error(validate_orientasiPenggunaan(df['orientasiPenggunaan']) & ~is_op_blank, "orientasiPenggunaan tidak valid")
-
-    # --- kreditProgramPemerintah ---
-    is_kpp_blank = validate_not_blank(df['kreditProgramPemerintah'])
-    add_error(is_kpp_blank, "kreditProgramPemerintah kosong")
-    add_error(validate_programPemerintah(df['kreditProgramPemerintah']) & ~is_kpp_blank, "kreditProgramPemerintah tidak valid")
+    #-- nomorAkadAwal ---
+    is_naa_blank = validate_not_blank(df['No Akad Awal'])
+    add_error(is_naa_blank, "nomorAkadAwal kosong")
     
-    # --- sektorEkonomi ---
-    is_se_blank = validate_not_blank(df['sektorEkonomi'])
-    add_error(is_se_blank, "sektorEkonomi kosong")
-    # Digits check (vectorized)
-    add_error(validate_is_exactly_digits(df['sektorEkonomi'], 6) & ~is_se_blank, "sektorEkonomi harus 6 digit angka")  
 
-    # --- lokasiPenggunaan ---
-    is_lp_blank = validate_not_blank(df['lokasiPenggunaan'])
-    add_error(is_lp_blank, "lokasiPenggunaan kosong")
-    add_error(validate_is_exactly_digits(df['lokasiPenggunaan'], 4) & ~is_lp_blank, "lokasiPenggunaan harus 4 digit angka")
-    # List check (panggil langsung tanpa .apply)
-    add_error(validate_lokasiPenggunaan(df['lokasiPenggunaan']) & ~is_lp_blank, "lokasiPenggunaan tidak valid")
+    #-- nomorAkadAkhir ---
+    is_nak_blank = validate_not_blank(df['No Akad Akhir'])
+    add_error(is_nak_blank, "nomorAkadAkhir kosong")
+    
 
-    # --- jenisSukuBungaImbalan ---
-    is_jsbi_blank = validate_not_blank(df['jenisSukuBungaImbalan'])
-    add_error(is_jsbi_blank, "jenisSukuBungaImbalan kosong")
-    add_error(validate_jenisSukuBungaImbalan(df['jenisSukuBungaImbalan']) & ~is_jsbi_blank, "jenisSukuBungaImbalan tidak valid")
+    #-- tanggalAkadAwal ---
+    is_taa_blank = validate_not_blank(df['Tanggal Akad Awal'])
+    add_error(is_taa_blank, "tanggalAkadAwal kosong")
+    add_error(validate_tanggal_format(df['Tanggal Akad Awal']) & ~is_taa_blank, "tanggalAkadAwal format salah")
 
-    # --- kualitasAset ---
-    is_ka_blank = validate_not_blank(df['kualitas'])
-    add_error(is_ka_blank, "kualitasAset kosong")
-    add_error(validate_kualitasAset(df['kualitas']) & ~is_ka_blank, "kualitasAset tidak valid")
+    #-- tanggalAkadAkhir ---
+    is_tak_blank = validate_not_blank(df['Tanggal Akad Akhir'])
+    add_error(is_tak_blank, "tanggalAkadAkhir kosong")
+    add_error(validate_tanggal_format(df['Tanggal Akad Akhir']) & ~is_tak_blank, "tanggalAkadAkhir format salah")
+
+    #-- Fequensi Perpanjangan Fasilitas Kredit ---
+    is_fpfk_blank = validate_not_blank(df['Freq Perpanjangan Fasilitas Kredit'])
+    add_error(is_fpfk_blank, "Freq Perpanjangan Fasilitas Kredit kosong")
+    add_error(~validate_numeric_only(df['Freq Perpanjangan Fasilitas Kredit']) & ~is_fpfk_blank, "Freq Perpanjangan Fasilitas Kredit harus numeric")
+
+    #-- tanggal awal kredit ---
+    is_tak_blank = validate_not_blank(df['Tanggal Awal Kredit'])
+    add_error(is_tak_blank, "Tanggal Awal Kredit kosong")
+    add_error(validate_tanggal_format(df['Tanggal Awal Kredit']) & ~is_tak_blank, "Tanggal Awal Kredit format salah")
+
+    #-- tanggal mulai ---
+    is_tm_blank = validate_not_blank(df['Tanggal Mulai'])
+    add_error(is_tm_blank, "Tanggal Mulai kosong")
+    add_error(validate_tanggal_format(df['Tanggal Mulai']) & ~is_tm_blank, "Tanggal Mulai format salah")
+
+    #-- tanggal jatuh tempo ---
+    is_tjt_blank = validate_not_blank(df['Tanggal Jatuh Tempo'])
+    add_error(is_tjt_blank, "Tanggal Jatuh Tempo kosong")
+    add_error(validate_tanggal_format(df['Tanggal Jatuh Tempo']) & ~is_tjt_blank, "Tanggal Jatuh Tempo format salah")
+
 
     # --- Tanggal & Math ---
-    tgl_awal = pd.to_datetime(df['tanggalAkadAwal'], format='%Y-%m-%d', errors='coerce')
-    tgl_akhir = pd.to_datetime(df['tanggalAkadAkhir'], format='%Y-%m-%d', errors='coerce')
-    add_error(tgl_awal.isna() & ~validate_not_blank(df['tanggalAkadAwal']), "tanggalAkadAwal format salah")
-    add_error((tgl_akhir < tgl_awal) & tgl_awal.notna() & tgl_akhir.notna(), "tanggalAkadAkhir < tanggalAkadAwal")
+    tgl_awal = pd.to_datetime(df['Tanggal Akad Awal'], format='%Y-%m-%d', errors='coerce')
+    tgl_akhir = pd.to_datetime(df['Tanggal Akad Akhir'], format='%Y-%m-%d', errors='coerce')
+    add_error(tgl_awal.isna() & ~validate_not_blank(df['Tanggal Akad Awal']), "Tanggal Akad Awal format salah")
+    add_error((tgl_akhir < tgl_awal) & tgl_awal.notna() & tgl_akhir.notna(), "Tanggal Akad Akhir < Tanggal Akad Awal")
+
+    # --- katego kategori Debitur ---
+    is_kud_blank = validate_not_blank(df['Kode Kategori Debitur'])
+    add_error(is_kud_blank, "Kode kategori Debitur kosong")
+    add_error(validate_kode_kategori_debitur(df['Kode Kategori Debitur']) & ~is_kud_blank, "Kode kategori Debitur tidak valid")
+
+    # --- jenisPenggunaan ---
+    is_jp_blank = validate_not_blank(df['Kode Jenis Penggunaan'])
+    add_error(is_jp_blank, "Kode Jenis Penggunaan kosong")  
+    add_error(validate_kode_jenis_penggunaan(df['Kode Jenis Penggunaan']) & ~is_jp_blank, "Kode Jenis Penggunaan tidak valid")
+
+    # --- orientasiPenggunaan ---
+    is_op_blank = validate_not_blank(df['Kode Orientasi Penggunaan'])
+    add_error(is_op_blank, "Kode Orientasi Penggunaan kosong")
+    add_error(validate_kode_orientasi_penggunaan(df['Kode Orientasi Penggunaan']) & ~is_op_blank, "Kode Orientasi Penggunaan tidak valid")
+
+    # --- kreditProgramPemerintah ---
+    is_kpp_blank = validate_not_blank(df['Kredit  Program Pemerintah'])
+    add_error(is_kpp_blank, "Kredit  Program Pemerintah kosong")
+    add_error(validate_kode_program_pemerintah(df['Kredit  Program Pemerintah']) & ~is_kpp_blank, "Kode Program Pemerintah tidak valid")
+
+    # --- sektorEkonomi ---
+    is_se_blank = validate_not_blank(df['Kode Sektor Ekonomi'])
+    add_error(is_se_blank, "Kode Sektor Ekonomi kosong")
+    # Digits check (vectorized)
+    add_error(validate_is_exactly_digits(df['Kode Sektor Ekonomi'], 6) & ~is_se_blank, "Kode Sektor Ekonomi harus 6 digit angka")  
+
+    # --- lokasi Kab/Kota ---
+    is_lp_blank = validate_not_blank(df['Kode Kab. / Kota Lokasi Proyek'])
+    add_error(is_lp_blank, "Kode Kab./ Kota Lokasi Proyek kosong")
+    add_error(validate_is_exactly_digits(df['Kode Kab. / Kota Lokasi Proyek'], 4) & ~is_lp_blank, "Kode Kab./ Kota Lokasi Proyek harus 4 digit angka")
+    # List check (panggil langsung tanpa .apply)
+    add_error(validate_kode_kabupaten(df['Kode Kab. / Kota Lokasi Proyek']) & ~is_lp_blank, "Kode Kab./ Kota Lokasi Proyek tidak valid")
+
+    # --- Nilai Proyek ---
+    is_np_blank = validate_not_blank(df['Nilai Proyek'])
+    add_error(~is_np_blank & ~validate_numeric_only(df['Nilai Proyek']), "Nilai Proyek harus numeric")
+
+    #-- kode jenis valuta ---
+    is_kjv_blank = validate_not_blank(df['Kode Valuta'])
+    add_error(is_kjv_blank, "Kode Valuta kosong")
+    add_error(~validate_alphanumeric(df['Kode Valuta']) & ~is_kjv_blank, "Kode Valuta harus alphanumeric")
+
+    # --- jenisSukuBungaImbalan ---
+    is_jsbi_blank = validate_not_blank(df['Suku Bunga atau Imbalan'])
+    add_error(is_jsbi_blank, "Suku Bunga atau Imbalan kosong")
+    
+    #-- Jenis Suku Bunga ---
+    is_jsb_blank = validate_not_blank(df['Jenis Suku Bunga'])
+    add_error(is_jsb_blank, "Jenis Suku Bunga kosong")
+    add_error(validate_jenisSukuBungaImbalan(df['Jenis Suku Bunga']) & ~is_jsbi_blank, "Suku Bunga atau Imbalan tidak valid")
+
+
+    # --- Kode Kualitas Kredit ---
+    is_ka_blank = validate_not_blank(df['Kode Kualitas Kredit'])
+    add_error(is_ka_blank, "Kode Kualitas Kredit kosong")
+    add_error(validate_kode_sifat_kredit(df['Kode Kualitas Kredit']) & ~is_ka_blank, "Kode Kualitas Kredit tidak valid")
+
+    # ==========================================================
+    # VALIDASI KONDISIONAL (HANYA JIKA KUALITAS == 5)
+    # ==========================================================
+    # Buat variabel bantu untuk baris yang kualitasnya 5 (Macet)
+    is_macet = (df['Kode Kualitas Kredit'] == '5')
+
+    #---- tanggal Macet ---
+    is_tm_blank = validate_not_blank(df['Tanggal Macet'])
+    add_error(is_macet & is_tm_blank, "Tanggal Macet kosong")
+    add_error(is_macet & ~is_tm_blank & validate_tanggal_format(df['Tanggal Macet']), "Tanggal Macet format salah")
+
+    #-- Kode Sebab Macet ---
+    is_ksm_blank = validate_not_blank(df['Kode Sebab Macet'])
+    add_error(is_macet & is_ksm_blank, "Kode Sebab Macet kosong")
+    add_error(is_macet & ~is_ksm_blank & validate_kode_sebab_macet(df['Kode Sebab Macet']), "Kode Sebab Macet tidak valid")
+
+    #-- Kode Kondisi ---
+    is_kk_blank = validate_not_blank(df['Kode Kondisi'])
+    add_error(is_kk_blank, "Kode Kondisi kosong")
+    add_error(validate_kode_kondisi(df['Kode Kondisi']) & ~is_kk_blank, "Kode Kondisi tidak valid")
+
+    # ==========================================================
+    # VALIDASI KONDISIONAL (HANYA JIKA kode kondisi bukan != "00"
+    # ==========================================================
+    
+    is_tdk_aktif = (df['Kode Kondisi'] != '00')
+
+    #-- Tanggal Kondisi ---
+    is_tk_blank = validate_not_blank(df['Tanggal Kondisi'])
+    add_error(is_tdk_aktif & is_tk_blank, "Tanggal Kondisi kosong")
+    add_error(is_tdk_aktif & ~is_tk_blank & validate_tanggal_format(df['Tanggal Kondisi']), "Tanggal Kondisi format salah")
+
+    #-- Operasi Data ---
+    is_od_blank = validate_not_blank(df['Operasi Data'])
+    add_error(is_od_blank, "Operasi Data kosong")
+    add_error(~df['Operasi Data'].isin(['U', 'C']) & ~is_od_blank, "Operasi Data harus salah satu dari 'U', 'C'")
+    
 
     # --- Validasi Integer (Semua kolom keuangan) ---
     kolom_uang = [
-        'plafonAwal', 'plafon', 'bakiDebet', 
-        'realisasiPencairanBulanBerjalan', 'pendapatanBungaImbalanYangAkanDiterima', 
-        'jumlah', 'kelonggaranTarikCommitted', 'kelonggaranTarikUncommitted', 
-        'nilaiAgunanYangDapatDiperhitungkanKredit', 'nilaiAgunanYangDapatDiperhitungkanKelonggaranTarik',
-        'cadanganKerugianPenurunanNilaiAsetBaik', 'cadanganKerugianPenurunanNilaiAsetKurangBaik', 
-        'cadanganKerugianPenurunanNilaiAsetTidakBaik'
+        'Plafon Awal', 'Plafon', 'Realisasi', 'Denda', 'Baki Debet', 'Nilai Dlm Mata Uang Asal', 
+        'Tunggakan Pokok', 'Tunggakan Bunga', 'Jmlh Hari Tunggakan', 'Frekuensi Tunggakan', 'Frekuensi Restrukturisasi'        
     ]
     
     for col in kolom_uang:
         is_blank = validate_not_blank(df[col])
-        # Beberapa kolom mungkin boleh NULL di sistem Anda, tapi jika sesuai kode Anda tadi:
-        if col not in ['cadanganKerugianPenurunanNilaiAsetBaik', 'cadanganKerugianPenurunanNilaiAsetKurangBaik', 'cadanganKerugianPenurunanNilaiAsetTidakBaik']:
-            add_error(is_blank, f"Cannot insert the value NULL in column {col}")
-        
         # Cek tipe data integer (Strict)
         add_error(~validate_numeric_only(df[col]) & ~is_blank, f"Missmatch data type in Column {col}, expected integer")
 
