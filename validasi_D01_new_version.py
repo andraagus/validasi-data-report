@@ -3,21 +3,7 @@ import re
 import os
 import tqdm
 
-...
-#... header file F01
-# Flag Detail|No Rekening Fasilitas|No CIF Debitur|Kode Sifat Kredit
-# |Kode Jenis Kredit|Kode Akad Kredit|No Akad Awal|Tanggal Akad Awal
-# |No Akad Akhir|Tanggal Akad Akhir|Freq Perpanjangan Fasilitas Kredit
-# |Tanggal Awal Kredit|Tanggal Mulai|Tanggal Jatuh Tempo|Kode Kategori Debitur
-# |Kode Jenis Penggunaan|Kode Orientasi Penggunaan|Kode Sektor Ekonomi|Kode Kab./ Kota Lokasi Proyek
-# |Nilai Proyek|Kode Valuta|Suku Bunga atau Imbalan|Jenis Suku Bunga
-# |Kredit  Program Pemerintah|Asal Kredit  Takeover|Sumber Dana|Plafon Awal|Plafon|Realisasi
-# |Denda|Baki Debet|Nilai Dlm Mata Uang Asal|Kode Kualitas Kredit|Tanggal Macet|Kode Sebab Macet
-# |Tunggakan Pokok|Tunggakan Bunga|Jmlh Hari Tunggakan|Frekuensi Tunggakan|Frekuensi Restrukturisasi
-# |Tanggal Restrukturisasi Awal|Tanggal Restrukturisasi Akhir|Kode Cara Restrukturisasi|Kode Kondisi
-# |Tanggal Kondisi|Keterangan|Kode Kantor Cabang|Operasi Data
 
-#...
 
 # ==========================================
 # STEP 1: FUNGSI VALIDASI MODULAR (UNIT)
@@ -130,3 +116,311 @@ def validate_kode_sebab_macet(series):
 def validate_kode_cara_restrukturisasi(series):
     valid_values = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18','19', '20','21','99']
     return ~series.isin(valid_values)
+
+def validate_duplicate_entries(df, subset_cols):
+    duplicate_mask = df.duplicated(subset=subset_cols, keep=False)
+    return duplicate_mask
+
+def validate_no_nik(series):
+    return ~series.astype(str).str.match(r'^\d{16}$')
+
+def validate_special_characters(series):
+    return series.astype(str).str.contains(r'[^a-zA-Z0-9\s]', na=False)
+
+def validate_numeric_only(series):
+    return series.astype(str).str.match(r'^\d+$')
+
+def valdiate_kode_status_pendidikan(series):
+    valid_values = ['00', '01', '02', '03', '04', '05', '06', '99']
+    return ~series.isin(valid_values)
+
+def validate_jenis_kelamin(series):
+    valid_values = ['P', 'L']
+    return ~series.isin(valid_values)
+
+def validate_minimal_karakter(series, min_length):
+    return series.astype(str).str.len() < min_length
+
+def validate_maximal_karakter(series, max_length):
+    return series.astype(str).str.len() > max_length
+
+def validate_kode_pos(series):
+    return ~series.astype(str).str.match(r'^\d{5}$')
+
+def validate_email_format(series):
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return ~series.astype(str).str.match(email_pattern)
+
+def validate_kode_negara_domisili(series):
+    valid_values = ['ID', 'AS', 'AU', 'BN', 'CN', 'FR', 'DE', 'HK', 'IN', 'JP', 'KR', 'MY', 'NZ', 'PH', 'SG', 'TH', 'GB']
+    return ~series.isin(valid_values)
+
+def validate_kode_pekerjaan(series):    
+    valid_values = ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', 
+                    '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', 
+                    '021', '022', '023', '024', '025', '026', '027', '028', '029', '030',
+                    '031', '032', '033', '034', '035', '036', '037', '099']
+    return ~series.isin(valid_values)
+
+def validate_sektor_ekonomi(series):
+    valid_values = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10',
+                    '11', '12', '13', '14', '15', '16', '17', '18', '19']
+    return ~series.isin(valid_values)
+
+def validate_exact_length(series, length):
+    return series.astype(str).str.len() != length
+
+def validate_kode_sumber_penghasilan(series):
+    valid_values = ['1', '2', '3']
+    return ~series.isin(valid_values)
+
+def validate_kode_hubungan_dengan_pelapor(series):
+    valid_values = ['T1', 'T2', 'T3', 'T4', 'T9', 'N',]
+    return ~series.isin(valid_values)   
+
+def validate_kode_golongan_debitur(series):
+    valid_values = ['S14', 'S24BL']
+    return ~series.isin(valid_values)
+
+def validate_kode_status_perkawinan(series):
+    valid_values = ['1', '2', '3']
+    return ~series.isin(valid_values)
+
+def validate_perjanjian_pisah_harta(series):
+    valid_values = ['Y', 'T']
+    return ~series.isin(valid_values)
+
+def validate_melanggar_bmpk_bmpd_bmpp(series):
+    valid_values = ['Y', 'T', 'N']
+    return ~series.isin(valid_values)
+
+def validate_melampaui_bmpk_bmpd_bmpp(series):
+    valid_values = ['Y', 'T', 'N']
+    return ~series.isin(valid_values)
+
+def validate_operasi_data(series):
+    valid_values = ['C', 'U', 'N']
+    return ~series.isin(valid_values)
+
+
+# ==========================================
+# STEP 2: PROSES UTAMA VALIDASI
+# ==========================================
+
+def run_validation():
+    folder_path = os.path.dirname(os.path.abspath(__file__))
+    d01_files = [f for f in os.listdir(folder_path) if 'D01' in f and f.endswith(('.xlsx', '.xls'))]
+
+    if not d01_files:
+        print("Tidak ada file D01 ditemukan.")
+        return
+
+    input_file = os.path.join(folder_path, d01_files[0])
+    print(f"Membaca file: {os.path.basename(input_file)}...")
+    
+    df = pd.read_excel(input_file, dtype=str)
+    
+    for col in df.columns:
+        df[col] = df[col].astype(str).str.strip().replace(['nan', 'NaN', 'None'], '')
+
+    error_list = []
+
+    def add_error(condition, message):
+        error_series = pd.Series("", index=df.index)
+        error_series[condition] = message
+        error_list.append(error_series)
+
+    print("Proses validasi sedang berjalan...")
+
+    #---Validate_Flag Detail_---#
+    add_error(validate_not_blank(df['Flag Detail']), "Flag Detail kosong")
+    add_error(df['Flag Detail'] != 'D', "flagDetail harus 'D'")
+
+    #---Validate_Nomor CIF_---#
+    add_error(validate_not_blank(df['Nomor CIF']), "Nomor CIF kosong")
+    add_error(validate_duplicate_entries(df, ['Nomor CIF']), "Nomor CIF duplikat")
+
+    #---Validate_Jenis Identitas_---#
+    add_error(validate_not_blank(df['Jenis Identitas']), "Jenis Identitas kosong")
+    add_error(~df['Jenis Identitas'].isin(['1', '2']), "Jenis Identitas tidak valid")
+
+    #---Validate_No Identitas_---#
+    add_error(validate_not_blank(df['No Identitas']), "No Identitas kosong")
+    add_error(validate_no_nik(df['No Identitas']), "No Identitas tidak valid (harus 16 digit)")
+    add_error(validate_numeric_only(df['No Identitas']), "No Identitas harus numerik")
+
+    #---Validate_Nama Sesuai Identitas_---#
+    add_error(validate_not_blank(df['Nama Sesuai Identitas']), "Nama Sesuai Identitas kosong")
+    add_error(validate_special_characters(df['Nama Sesuai Identitas']), "Nama Sesuai Identitas mengandung karakter khusus")
+
+    #---Validate_Nama Lengkap_---#
+    add_error(validate_not_blank(df['Nama Lengkap']), "Nama Lengkap kosong")
+    add_error(validate_special_characters(df['Nama Lengkap']), "Nama Lengkap mengandung karakter khusus")
+
+    #---Validate_Kode Status Pendidikan_---#
+    add_error(validate_not_blank(df['Kode Status Pendidikan']), "Kode Status Pendidikan kosong")
+    add_error(valdiate_kode_status_pendidikan(df['Kode Status Pendidikan']), "Kode Status Pendidikan tidak valid")
+
+    #---Validate_Jenis Kelamin_---#
+    add_error(validate_not_blank(df['Jenis Kelamin']), "Jenis Kelamin kosong")
+    add_error(validate_jenis_kelamin(df['Jenis Kelamin']), "Jenis Kelamin tidak valid")
+
+    #---Validate_Tempat Lahir_---#
+    add_error(validate_not_blank(df['Tempat Lahir']), "Tempat Lahir kosong")
+    add_error(validate_special_characters(df['Tempat Lahir']), "Tempat Lahir mengandung karakter khusus")
+
+    #---Validate_Tanggal Lahir_---#
+    add_error(validate_not_blank(df['Tanggal Lahir']), "Tanggal Lahir kosong")
+    add_error(validate_tanggal_format(df['Tanggal Lahir']), "Tanggal Lahir tidak sesuai format YYYY-MM-DD")
+
+    #---Validate_No Pokok Wajib Pajak_---#
+    is_npwp_not_blank = ~validate_not_blank(df['No Pokok Wajib Pajak'])
+    add_error(is_npwp_not_blank & (~df['No Pokok Wajib Pajak'].astype(str).str.match(r'^\d{15}$')), "No Pokok Wajib Pajak tidak valid (harus 15 digit)")
+    add_error(is_npwp_not_blank & (~df['No Pokok Wajib Pajak'].astype(str).str.isdigit()), "No Pokok Wajib Pajak harus numerik")
+
+    #---Validate_Alamat_---#
+    add_error(validate_not_blank(df['Alamat']), "Alamat kosong")
+    add_error(validate_special_characters(df['Alamat']), "Alamat mengandung karakter khusus")
+    add_error(df['Alamat'].astype(str).str.len() > 100, "Alamat melebihi 100 karakter")
+    add_error(validate_minimal_karakter(df['Alamat'], 2), "Alamat minimal 3 karakter")
+
+    #---Validate_Kelurahan_---#
+    add_error(validate_not_blank(df['Kelurahan']), "Kelurahan kosong")
+    add_error(validate_special_characters(df['Kelurahan']), "Kelurahan mengandung karakter khusus")
+    add_error(df['Kelurahan'].astype(str).str.len() > 50, "Kelurahan melebihi 50 karakter")
+    add_error(validate_minimal_karakter(df['Kelurahan'], 2), "Kelurahan minimal 3 karakter")
+    add_error(~validate_numeric_only(df['Kelurahan']), "Kelurahan tidak boleh numeric only")
+    
+    #---Validate_Kecamatan_---#
+    add_error(validate_not_blank(df['Kecamatan']), "Kecamatan kosong")
+    add_error(validate_special_characters(df['Kecamatan']), "Kecamatan mengandung karakter khusus")
+    add_error(df['Kecamatan'].astype(str).str.len() > 50, "Kecamatan melebihi 50 karakter")
+    add_error(validate_minimal_karakter(df['Kecamatan'], 2), "Kecamatan minimal 3 karakter")
+    add_error(~validate_numeric_only(df['Kecamatan']), "Kecamatan tidak boleh numeric only")
+
+    #---Validate_Kode Kabupaten atau Kota_---#
+    add_error(validate_not_blank(df['Kode Kabupaten atau Kota']), "Kode Kabupaten atau Kota kosong")
+    add_error(validate_kode_kabupaten(df['Kode Kabupaten atau Kota']), "Kode Kabupaten atau Kota tidak valid")
+
+    #---Validate_Kode Pos_---#
+    add_error(validate_not_blank(df['Kode Pos']), "Kode Pos kosong")
+    add_error(validate_kode_pos(df['Kode Pos']), "Kode Pos tidak valid (harus 5 digit)")
+
+    #---Validate_No Telepon_---#
+    add_error(validate_not_blank(df['No Telepon']), "No Telepon kosong")
+    add_error(~df['No Telepon'].astype(str).str.match(r'^\d+$'), "No Telepon harus numerik")
+
+    #---Validate_No Telepon Seluler_---#
+    add_error(validate_not_blank(df['No Telepon Seluler']), "No Telepon Seluler kosong")
+    add_error(~df['No Telepon Seluler'].astype(str).str.match(r'^\d+$'), "No Telepon Seluler harus numerik")
+
+    #---Validate_Alamat E-mail_---#
+    is_email_not_blank = ~validate_not_blank(df['Alamat E-mail'])
+    add_error(is_email_not_blank   & (~df['Alamat E-mail'].astype(str).str.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')), "Alamat E-mail tidak valid format")
+
+    #---Validate_Kode Negara Domisili_---#
+    add_error(validate_not_blank(df['Kode Negara Domisili']), "Kode Negara Domisili kosong")
+    add_error(~df['Kode Negara Domisili'].isin(['ID', 'AS', 'AU', 'BN', 'CN', 'FR', 'DE', 'HK', 'IN', 'JP', 'KR', 'MY', 'NZ', 'PH', 'SG', 'TH', 'GB']), "Kode Negara Domisili tidak valid")
+
+    #---Validate_Kode Pekerjaan_---#
+    add_error(validate_not_blank(df['Kode Pekerjaan']), "Kode Pekerjaan kosong")
+    add_error(validate_kode_pekerjaan(df['Kode Pekerjaan']), "Kode Pekerjaan tidak valid")
+
+    #---Validate_Tempat Bekerja_---#
+    add_error(validate_not_blank(df['Tempat Bekerja']), "Tempat Bekerja kosong")
+    add_error(validate_special_characters(df['Tempat Bekerja']), "Tempat Bekerja mengandung karakter khusus")
+    add_error(df['Tempat Bekerja'].astype(str).str.len() > 50, "Tempat Bekerja melebihi 50 karakter")
+
+    #---Validate_Kode Bidang Usaha Tempat Bekerja_---#
+    add_error(validate_not_blank(df['Kode Bidang Usaha Tempat Bekerja']), "Kode Bidang Usaha Tempat Bekerja kosong")
+    add_error(validate_sektor_ekonomi(df['Kode Bidang Usaha Tempat Bekerja']), "Kode Bidang Usaha Tempat Bekerja tidak valid")
+    add_error(validate_exact_length(df['Kode Bidang Usaha Tempat Bekerja'], 6), "Kode Bidang Usaha Tempat Bekerja harus 6 digit")
+
+    #---Validate_Alamat Tempat Bekerja_---#
+    is_atb_blank = validate_not_blank(df['Alamat Tempat Bekerja'])
+    add_error(is_atb_blank, "Alamat Tempat Bekerja kosong")
+    add_error(~is_atb_blank & validate_special_characters(df['Alamat Tempat Bekerja']), "Alamat Tempat Bekerja mengandung karakter khusus")
+
+
+    #---Validate_Penghasilan Kotor Per-Tahun_---#
+    add_error(validate_not_blank(df['Penghasilan Kotor Per-Tahun']), "Penghasilan Kotor Per-Tahun kosong")
+    add_error(~validate_numeric_only(df['Penghasilan Kotor Per-Tahun']), "Penghasilan Kotor Per-Tahun harus numerik")
+    add_error(df['Penghasilan Kotor Per-Tahun'].astype(float) < 0, "Penghasilan Kotor Per-Tahun tidak boleh negatif")
+    add_error(validate_maximal_karakter(df['Penghasilan Kotor Per-Tahun'], 12), "Penghasilan Kotor Per-Tahun melebihi 12 karakter")
+
+    #---Validate_Kode Sumber Penghasilan_---#
+    add_error(validate_not_blank(df['Kode Sumber Penghasilan']), "Kode Sumber Penghasilan kosong")
+    add_error(validate_kode_sumber_penghasilan(df['Kode Sumber Penghasilan']), "Kode Sumber Penghasilan tidak valid")
+
+    #---Validate_Jmlh Tanggungan_---#
+    add_error(validate_not_blank(df['Jmlh Tanggungan']), "Jmlh Tanggungan kosong")
+    add_error(~validate_numeric_only(df['Jmlh Tanggungan']), "Jmlh Tanggungan harus numerik")
+
+    #---Validate_Kode Hub. dengan Pelapor_---#
+    add_error(validate_not_blank(df['Kode Hub. dengan Pelapor']), "Kode Hub. dengan Pelapor kosong")
+    add_error(validate_kode_hubungan_dengan_pelapor(df['Kode Hub. dengan Pelapor']), "Kode Hub. dengan Pelapor tidak valid")
+
+    #---Validate_Kode Golongan Debitur_---#
+    add_error(validate_not_blank(df['Kode Golongan Debitur']), "Kode Golongan Debitur kosong")
+    add_error(validate_kode_golongan_debitur(df['Kode Golongan Debitur']), "Kode Golongan Debitur tidak valid")
+
+    #---Validate_Status Perkawinan Debitur_---#
+    add_error(validate_not_blank(df['Status Perkawinan Debitur']), "Status Perkawinan Debitur kosong")
+    add_error(validate_kode_status_perkawinan(df['Status Perkawinan Debitur']), "Status Perkawinan Debitur tidak valid")
+
+    #---Validate_No Identitas Pasangan_---#
+    is_no_id_pasangan_not_blank = ~validate_not_blank(df['No Identitas Pasangan'])
+    add_error(is_no_id_pasangan_not_blank & (~df['No Identitas Pasangan'].astype(str).str.match(r'^\d{16}$')), "No Identitas Pasangan tidak valid (harus 16 digit)")
+    add_error(is_no_id_pasangan_not_blank & (~df['No Identitas Pasangan'].astype(str).str.isdigit()), "No Identitas Pasangan harus numerik")
+
+    #---Validate_Nama Pasangan_---#
+    is_nama_pasangan_not_blank = ~validate_not_blank(df['Nama Pasangan'])
+    add_error(is_nama_pasangan_not_blank & validate_special_characters(df['Nama Pasangan']), "Nama Pasangan mengandung karakter khusus")
+
+    #---Validate_Tanggal Lahir Pasangan_---#
+    is_tgl_lahir_pasangan_not_blank = ~validate_not_blank(df['Tanggal Lahir Pasangan'])
+    add_error(is_tgl_lahir_pasangan_not_blank & validate_tanggal_format(df['Tanggal Lahir Pasangan']), "Tanggal Lahir Pasangan tidak sesuai format YYYY-MM-DD")
+
+    #---Validate_Perjanjian Pisah Harta_---#
+    is_status_perkawinan_married = df['Status Perkawinan Debitur'] == '1'
+    add_error(is_status_perkawinan_married & validate_not_blank(df['Perjanjian Pisah Harta']), "Perjanjian Pisah Harta kosong padahal Status Perkawinan Debitur menikah")
+    add_error(is_status_perkawinan_married & validate_perjanjian_pisah_harta(df['Perjanjian Pisah Harta']), "Perjanjian Pisah Harta tidak valid")
+
+    #---Validate_Melanggar BMPK BMPD BMPP_---#
+    add_error(validate_not_blank(df['Melanggar BMPK BMPD BMPP']), "Melanggar BMPK BMPD BMPP kosong")
+    add_error(validate_melanggar_bmpk_bmpd_bmpp(df['Melanggar BMPK BMPD BMPP']), "Melanggar BMPK BMPD BMPP tidak valid")
+
+    #---Validate_Melampaui BMPK BMPD BMPP_---#
+    add_error(validate_not_blank(df['Melampaui BMPK BMPD BMPP']), "Melampaui BMPK BMPD BMPP kosong")    
+    add_error(validate_melampaui_bmpk_bmpd_bmpp(df['Melampaui BMPK BMPD BMPP']), "Melampaui BMPK BMPD BMPP tidak valid")
+
+    #---Validate_Nama Gadis Ibu Kandung_---#
+    add_error(validate_not_blank(df['Nama Gadis Ibu Kandung']), "Nama Gadis Ibu Kandung kosong")
+    add_error(validate_special_characters(df['Nama Gadis Ibu Kandung']), "Nama Gadis Ibu Kandung mengandung karakter khusus")
+
+
+    #---Validate_Kode Kantor Cabang_---#
+    add_error(validate_not_blank(df['Kode Kantor Cabang']), "Kode Kantor Cabang kosong")
+
+    #---Validate_Operasi Data_---#
+    add_error(validate_not_blank(df['Operasi Data']), "Operasi Data kosong")
+    add_error(validate_operasi_data(df['Operasi Data']), "Operasi Data tidak valid")
+
+
+    # ==========================================
+    # STEP 3: MENGGABUNGKAN HASIL
+    # ==========================================
+    print("Menggabungkan hasil validasi...")
+    temp_err_df = pd.concat(error_list, axis=1)
+    
+    # Join string per baris
+    df['hasil_validasi'] = temp_err_df.apply(lambda x: "; ".join(filter(None, x)), axis=1)
+    df['hasil_validasi'] = df['hasil_validasi'].replace("", "VALID")
+
+    # Simpan
+    output_file = os.path.join(folder_path, f'hasil_validasi_{os.path.basename(input_file)}')
+    df.to_excel(output_file, index=False)
+    print(f"Selesai! File disimpan di: {output_file}")
+
+if __name__ == "__main__":
+    run_validation()
