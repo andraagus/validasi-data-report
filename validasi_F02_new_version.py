@@ -348,6 +348,26 @@ def run_validation():
     add_error(is_macet & is_ksm_blank, "Kode Sebab Macet kosong")
     add_error(is_macet & ~is_ksm_blank & validate_kode_sebab_macet(df['Kode Sebab Macet']), "Kode Sebab Macet tidak valid")
 
+    #-- Tunggakan Pokok ---
+    is_tp_blank = validate_not_blank(df['Tunggakan Pokok'])
+    add_error(is_macet & is_tp_blank, "Tunggakan Pokok kosong")    
+    add_error(is_macet & ~is_tp_blank & ~validate_numeric_only(df['Tunggakan Pokok']), "Tunggakan Pokok harus numeric")
+
+    #-- Tunggakan Bunga --- 
+    is_tb_blank = validate_not_blank(df['Tunggakan Bunga'])
+    add_error(is_macet & is_tb_blank, "Tunggakan Bunga kosong")
+    add_error(is_macet & ~is_tb_blank & ~validate_numeric_only(df['Tunggakan Bunga']), "Tunggakan Bunga harus numeric")
+    #-- Jmlh Hari Tunggakan ---
+    is_jht_blank = validate_not_blank(df['Jmlh Hari Tunggakan'])
+    add_error(is_macet & is_jht_blank, "Jmlh Hari Tunggakan kosong")
+    add_error(is_macet & ~is_jht_blank & ~validate_numeric_only(df['Jmlh Hari Tunggakan']), "Jmlh Hari Tunggakan harus numeric")
+
+    #-- Frekuensi Tunggakan --- 
+    is_ft_blank = validate_not_blank(df['Frekuensi Tunggakan'])
+    add_error(is_macet & is_ft_blank, "Frekuensi Tunggakan kosong")
+    add_error(is_macet & ~is_ft_blank & ~validate_numeric_only(df['Frekuensi Tunggakan']), "Frekuensi Tunggakan harus numeric")
+    
+
     #-- Kode Kondisi ---
     is_kk_blank = validate_not_blank(df['Kode Kondisi'])
     add_error(is_kk_blank, "Kode Kondisi kosong")
