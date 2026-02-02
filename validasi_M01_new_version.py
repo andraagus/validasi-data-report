@@ -135,7 +135,7 @@ def valdiate_kode_status_pendidikan(series):
     return ~series.isin(valid_values)
 
 def validate_jenis_kelamin(series):
-    valid_values = ['P', 'L']
+    valid_values = ['P', 'L','B','M']
     return ~series.isin(valid_values)
 
 def validate_minimal_karakter(series, min_length):
@@ -244,9 +244,14 @@ def validate_kode_jenis_identitas_pengurus(series):
     return ~series.isin(valid_values)
 
 def validate_jenis_jabatan_pengurus(series):
-    valid_values = ['1', '2', '3', '9']
+    valid_values = ['01', '02', '03', '04', '05', '06', '07', '09', '10',
+                    '11', '12', '13','19','51', '52', '53', '54', '55', 
+                    '57', '58', '59', '60','69']
     return ~series.isin(valid_values)
 
+def validate_status_pengurus(series):
+    valid_values = ['1', '2']
+    return ~series.isin(valid_values)
 
 
 
@@ -308,7 +313,6 @@ def run_validation():
     ##--- Alamat ---##
     add_error(validate_not_blank(df['Alamat']), "Alamat kosong")
     add_error(validate_special_characters(df['Alamat']), "Alamat tidak valid")
-    add_error(validate_alamat(df['Alamat']), "Alamat tidak valid")
     add_error(validate_minimal_karakter(df['Alamat'], 2), "Alamat minimal 5 karakter")
 
     ##--- Kelurahan ---##
