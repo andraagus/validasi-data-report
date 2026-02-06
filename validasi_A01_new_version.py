@@ -201,6 +201,12 @@ def validate_operasi_data(series):
     valid_values = ['U', 'C', 'D','N']
     return ~series.isin(valid_values)
 
+def validate_relasi_no_agunan_cif(series_agu, series_cif):
+    # jika ada No agunan yang sama, maka informasi kode status agunan,kode jenis pengikata, tanggal pengikatan, nama pemilik agunan, bukti kepemilikan, alamat agunan, kode kab/kota lokasi ag, nilai ag sesuai njop, nilai ag pelapor, tgl penilaian ag pelapor, nilai ag penilai independen, nama penilai independen, tgl penilaian ag penilai indep harus sama
+    duplicated_agu = series_agu.duplicated(keep=False)
+    mask = pd.Series(False, index=series_agu.index)
+    mask[duplicated_agu] = series_cif[duplicated_agu].duplicated(keep=False)
+    return mask
 
 # ==========================================
 # STEP 2: PROSES UTAMA
