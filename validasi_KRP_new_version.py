@@ -127,7 +127,23 @@ def validate_sektor_ekonomi(series):
                     '970000','990000']
     return ~series.isin(valid_values)
 
+def validate_relasi_sektorEkonimi_jenisPenggunaan(sektor_series, penggunaan_series):
+    # Contoh relasi: sektor tertentu hanya boleh dengan jenis penggunaan tertentu
+    # Misal: sektor '001110 sd 009000' hanya boleh dengan jenis penggunaan '3'
+    condition = ((sektor_series >= '001110') & (sektor_series <= '009000')) & (penggunaan_series != '3')
+    return condition
 
+def validate_relasi_tanggalAkad_noAkad(tgl_series, no_series):
+    # Jika noAkadAwal sama dengan noAkadAkhir, maka tanggalAkadAwal harus sama dengan tanggalAkadAkhir
+    # Jika noAkadAwal berbeda dengan noAkadAkhir maka tanggalAkadAwal harus berbeda dengan tanggalAkadAkhir
+    condition = (no_series['noAkadAwal'] == no_series['noAkadAkhir']) & (tgl_series['tanggalAkadAwal'] != tgl_series['tanggalAkadAkhir'])
+    condition |= (no_series['noAkadAwal'] != no_series['noAkadAkhir']) & (tgl_series['tanggalAkadAwal'] == tgl_series['tanggalAkadAkhir'])
+    return condition
+
+def validate_tanggal(series):
+    # Cek format tanggal YYYY-MM-DD
+    return ~series.astype(str).str.match(r'^\d{4}-\d{2}-\d{2}$')
+    
 # ==========================================
 # STEP 2: PROSES UTAMA
 # ==========================================
@@ -167,6 +183,29 @@ def run_validation():
     add_error(~validate_alphanumeric(df['nomorRekening']) & ~is_rek_blank, "nomorRekening harus alphanumeric")
     add_error(df['nomorRekening'].duplicated(keep=False) & ~is_rek_blank, "nomorRekening duplikat")
 
+    # --- noAkadAwal & noAkadAkhir ---
+    is_noAkadAwal_blank = validate_not_blank(df['noAkadAwal'])
+    add_error(is_noAkadAwal_blank, "noAkadAwal kosong")
+    add_error(~validate_alphanumeric(df['noAkadAwal']) & ~is_noAkadAwal_blank, "noAkadAwal harus alphanumeric")
+    add_error(df['noAkadAwal'].duplicated(keep=False) & ~is_noAkadAwal_blank, "noAkadAwal duplikat")
+    is_noAkadAkhir_blank = validate_not_blank(df['noAkadAkhir'])
+    add_error(is_noAkadAkhir_blank, "noAkadAkhir kosong")
+    add_error(~validate_alphanumeric(df['noAkadAkhir']) & ~is_noAkadAkhir_blank, "noAkadAkhir harus alphanumeric")
+    add_error(df['noAkadAkhir'].duplicated(keep=False) & ~is_noAkadAkhir_blank, "noAkadAkhir duplikat")
+
+    # --- tanggalAkadAwal & tanggalAkadAkhir ---
+    is_tglAkadAwal_blank = validate_not_blank(df['tanggalAkadAwal'])
+    add_error(is_tglAkadAwal_blank, "tanggalAkadAwal kosong")
+    add_error(validate_tanggal(df['tanggalAkadAwal']) & ~is_tglAkadAwal_blank, "tanggalAkadAwal tidak valid")
+    is_tglAkadAkhir_blank = validate_not_blank(df['tanggalAkadAkhir'])
+    add_error(is_tglAkadAkhir_blank, "tanggalAkadAkhir kosong")
+    add_error(validate_tanggal(df['tanggalAkadAkhir']) & ~is_tglAkadAkhir_blank, "tanggalAkadAkhir tidak valid")
+    add_error(validate_relasi_tanggalAkad_noAkad(
+        df[['tanggalAkadAwal', 'tanggalAkadAkhir']],
+        df[['noAkadAwal', 'noAkadAkhir']]
+    ) & ~is_tglAkadAwal_blank & ~is_tglAkadAkhir_blank & ~is_noAkadAwal_blank & ~is_noAkadAkhir_blank,
+    "Relasi tanggalAkad dan noAkad tidak valid")
+
     # --- jenisKreditPembiayaan ---
     is_jkp_blank = validate_not_blank(df['jenisKreditPembiayaan'])
     add_error(is_jkp_blank, "jenisKreditPembiayaan kosong")
@@ -197,6 +236,8 @@ def run_validation():
     add_error(is_se_blank, "sektorEkonomi kosong")
     # Digits check (vectorized)
     add_error(validate_is_exactly_digits(df['sektorEkonomi'], 6) & ~is_se_blank, "sektorEkonomi harus 6 digit angka")  
+    add_error(validate_relasi_sektorEkonimi_jenisPenggunaan(df['sektorEkonomi'], df['jenisPenggunaan']) & ~is_se_blank, "Relasi sektorEkonomi dan jenisPenggunaan tidak valid")
+
 
     # --- lokasiPenggunaan ---
     is_lp_blank = validate_not_blank(df['lokasiPenggunaan'])
