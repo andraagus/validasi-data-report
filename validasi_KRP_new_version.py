@@ -13,6 +13,10 @@ def validate_not_blank(series):
 def validate_alphanumeric(series):
     return series.astype(str).str.match(r'^[a-zA-Z0-9]+$')
 
+def validate_alphanumeric_with_hyphen(series):
+    # Memperbolehkan alphanumeric, tanda hubung (-), dan garis miring (/)
+    return series.astype(str).str.match(r'^[a-zA-Z0-9\-/]+$')
+
 def validate_numeric_only(series):
     return series.astype(str).str.match(r'^\d+$')
 
@@ -134,10 +138,10 @@ def validate_relasi_sektorEkonimi_jenisPenggunaan(sektor_series, penggunaan_seri
     return condition
 
 def validate_relasi_tanggalAkad_noAkad(tgl_series, no_series):
-    # Jika noAkadAwal sama dengan noAkadAkhir, maka tanggalAkadAwal harus sama dengan tanggalAkadAkhir
-    # Jika noAkadAwal berbeda dengan noAkadAkhir maka tanggalAkadAwal harus berbeda dengan tanggalAkadAkhir
-    condition = (no_series['noAkadAwal'] == no_series['noAkadAkhir']) & (tgl_series['tanggalAkadAwal'] != tgl_series['tanggalAkadAkhir'])
-    condition |= (no_series['noAkadAwal'] != no_series['noAkadAkhir']) & (tgl_series['tanggalAkadAwal'] == tgl_series['tanggalAkadAkhir'])
+    # Jika nomorAkadAwal sama dengan nomorAkadAkhir, maka tanggalAkadAwal harus sama dengan tanggalAkadAkhir
+    # Jika nomorAkadAwal berbeda dengan nomorAkadAkhir maka tanggalAkadAwal harus berbeda dengan tanggalAkadAkhir
+    condition = (no_series['nomorAkadAwal'] == no_series['nomorAkadAkhir']) & (tgl_series['tanggalAkadAwal'] != tgl_series['tanggalAkadAkhir'])
+    condition |= (no_series['nomorAkadAwal'] != no_series['nomorAkadAkhir']) & (tgl_series['tanggalAkadAwal'] == tgl_series['tanggalAkadAkhir'])
     return condition
 
 def validate_tanggal(series):
@@ -172,26 +176,28 @@ def run_validation():
         error_list.append(error_series)
 
     print("Melakukan validasi vectorized (Sangat Cepat)...")
+    print("Mempersiapkan aturan validasi...")
 
     # --- Validasi Dasar ---
     add_error(validate_not_blank(df['idPelapor']), "idPelapor kosong")
     add_error(df['periodeLaporan'] != 'M', "periodeLaporan harus 'M'")
     
     # --- nomorRekening ---
+    # Pre-calculate boolean masks for blank checks and other preparations
     is_rek_blank = validate_not_blank(df['nomorRekening'])
     add_error(is_rek_blank, "nomorRekening kosong")
     add_error(~validate_alphanumeric(df['nomorRekening']) & ~is_rek_blank, "nomorRekening harus alphanumeric")
     add_error(df['nomorRekening'].duplicated(keep=False) & ~is_rek_blank, "nomorRekening duplikat")
 
-    # --- noAkadAwal & noAkadAkhir ---
-    is_noAkadAwal_blank = validate_not_blank(df['noAkadAwal'])
-    add_error(is_noAkadAwal_blank, "noAkadAwal kosong")
-    add_error(~validate_alphanumeric(df['noAkadAwal']) & ~is_noAkadAwal_blank, "noAkadAwal harus alphanumeric")
-    add_error(df['noAkadAwal'].duplicated(keep=False) & ~is_noAkadAwal_blank, "noAkadAwal duplikat")
-    is_noAkadAkhir_blank = validate_not_blank(df['noAkadAkhir'])
-    add_error(is_noAkadAkhir_blank, "noAkadAkhir kosong")
-    add_error(~validate_alphanumeric(df['noAkadAkhir']) & ~is_noAkadAkhir_blank, "noAkadAkhir harus alphanumeric")
-    add_error(df['noAkadAkhir'].duplicated(keep=False) & ~is_noAkadAkhir_blank, "noAkadAkhir duplikat")
+    # --- nomorAkadAwal & nomorAkadAkhir ---
+    is_nomorAkadAwal_blank = validate_not_blank(df['nomorAkadAwal'])
+    add_error(is_nomorAkadAwal_blank, "nomorAkadAwal kosong")
+    add_error(~validate_alphanumeric_with_hyphen(df['nomorAkadAwal']) & ~is_nomorAkadAwal_blank, "nomorAkadAwal harus alphanumeric (boleh ada - atau /)")
+    add_error(df['nomorAkadAwal'].duplicated(keep=False) & ~is_nomorAkadAwal_blank, "nomorAkadAwal duplikat")
+    is_nomorAkadAkhir_blank = validate_not_blank(df['nomorAkadAkhir'])
+    add_error(is_nomorAkadAkhir_blank, "nomorAkadAkhir kosong")
+    add_error(~validate_alphanumeric_with_hyphen(df['nomorAkadAkhir']) & ~is_nomorAkadAkhir_blank, "nomorAkadAkhir harus alphanumeric (boleh ada - atau /)")
+    add_error(df['nomorAkadAkhir'].duplicated(keep=False) & ~is_nomorAkadAkhir_blank, "nomorAkadAkhir duplikat")
 
     # --- tanggalAkadAwal & tanggalAkadAkhir ---
     is_tglAkadAwal_blank = validate_not_blank(df['tanggalAkadAwal'])
@@ -202,8 +208,8 @@ def run_validation():
     add_error(validate_tanggal(df['tanggalAkadAkhir']) & ~is_tglAkadAkhir_blank, "tanggalAkadAkhir tidak valid")
     add_error(validate_relasi_tanggalAkad_noAkad(
         df[['tanggalAkadAwal', 'tanggalAkadAkhir']],
-        df[['noAkadAwal', 'noAkadAkhir']]
-    ) & ~is_tglAkadAwal_blank & ~is_tglAkadAkhir_blank & ~is_noAkadAwal_blank & ~is_noAkadAkhir_blank,
+        df[['nomorAkadAwal', 'nomorAkadAkhir']]
+    ) & ~is_tglAkadAwal_blank & ~is_tglAkadAkhir_blank & ~is_nomorAkadAwal_blank & ~is_nomorAkadAkhir_blank,
     "Relasi tanggalAkad dan noAkad tidak valid")
 
     # --- jenisKreditPembiayaan ---
@@ -263,6 +269,47 @@ def run_validation():
     add_error((tgl_akhir < tgl_awal) & tgl_awal.notna() & tgl_akhir.notna(), "tanggalAkadAkhir < tanggalAkadAwal")
 
     # --- Validasi Integer (Semua kolom keuangan) ---
+    validations = [
+        ("idPelapor kosong", validate_not_blank(df['idPelapor'])),
+        ("periodeLaporan harus 'M'", df['periodeLaporan'] != 'M'),
+        ("nomorRekening kosong", is_rek_blank),
+        ("nomorRekening harus alphanumeric", ~validate_alphanumeric(df['nomorRekening']) & ~is_rek_blank),
+        ("nomorRekening duplikat", df['nomorRekening'].duplicated(keep=False) & ~is_rek_blank),
+        ("nomorAkadAwal kosong", is_nomorAkadAwal_blank),
+        ("nomorAkadAwal harus alphanumeric (boleh ada - atau /)", ~validate_alphanumeric_with_hyphen(df['nomorAkadAwal']) & ~is_nomorAkadAwal_blank),
+        ("nomorAkadAwal duplikat", df['nomorAkadAwal'].duplicated(keep=False) & ~is_nomorAkadAwal_blank),
+        ("nomorAkadAkhir kosong", is_nomorAkadAkhir_blank),
+        ("nomorAkadAkhir harus alphanumeric (boleh ada - atau /)", ~validate_alphanumeric_with_hyphen(df['nomorAkadAkhir']) & ~is_nomorAkadAkhir_blank),
+        ("nomorAkadAkhir duplikat", df['nomorAkadAkhir'].duplicated(keep=False) & ~is_nomorAkadAkhir_blank),
+        ("tanggalAkadAwal kosong", is_tglAkadAwal_blank),
+        ("tanggalAkadAwal tidak valid", validate_tanggal(df['tanggalAkadAwal']) & ~is_tglAkadAwal_blank),
+        ("tanggalAkadAkhir kosong", is_tglAkadAkhir_blank),
+        ("tanggalAkadAkhir tidak valid", validate_tanggal(df['tanggalAkadAkhir']) & ~is_tglAkadAkhir_blank),
+        ("Relasi tanggalAkad dan noAkad tidak valid", validate_relasi_tanggalAkad_noAkad(df[['tanggalAkadAwal', 'tanggalAkadAkhir']], df[['nomorAkadAwal', 'nomorAkadAkhir']]) & ~is_tglAkadAwal_blank & ~is_tglAkadAkhir_blank & ~is_nomorAkadAwal_blank & ~is_nomorAkadAkhir_blank),
+        ("jenisKreditPembiayaan kosong", is_jkp_blank),
+        ("jenisKreditPembiayaan tidak valid", validate_jenisKreditPembiayaan(df['jenisKreditPembiayaan']) & ~is_jkp_blank),
+        ("kategoriUsahaDebitur kosong", is_kud_blank),
+        ("kategoriUsahaDebitur tidak valid", validate_jenisusahanDebitur(df['kategoriUsahaDebitur']) & ~is_kud_blank),
+        ("jenisPenggunaan kosong", is_jp_blank),
+        ("jenisPenggunaan tidak valid", validate_jenispenggunaan(df['jenisPenggunaan']) & ~is_jp_blank),
+        ("orientasiPenggunaan kosong", is_op_blank),
+        ("orientasiPenggunaan tidak valid", validate_orientasiPenggunaan(df['orientasiPenggunaan']) & ~is_op_blank),
+        ("kreditProgramPemerintah kosong", is_kpp_blank),
+        ("kreditProgramPemerintah tidak valid", validate_programPemerintah(df['kreditProgramPemerintah']) & ~is_kpp_blank),
+        ("sektorEkonomi kosong", is_se_blank),
+        ("sektorEkonomi harus 6 digit angka", validate_is_exactly_digits(df['sektorEkonomi'], 6) & ~is_se_blank),
+        ("Relasi sektorEkonomi dan jenisPenggunaan tidak valid", validate_relasi_sektorEkonimi_jenisPenggunaan(df['sektorEkonomi'], df['jenisPenggunaan']) & ~is_se_blank),
+        ("lokasiPenggunaan kosong", is_lp_blank),
+        ("lokasiPenggunaan harus 4 digit angka", validate_is_exactly_digits(df['lokasiPenggunaan'], 4) & ~is_lp_blank),
+        ("lokasiPenggunaan tidak valid", validate_lokasiPenggunaan(df['lokasiPenggunaan']) & ~is_lp_blank),
+        ("jenisSukuBungaImbalan kosong", is_jsbi_blank),
+        ("jenisSukuBungaImbalan tidak valid", validate_jenisSukuBungaImbalan(df['jenisSukuBungaImbalan']) & ~is_jsbi_blank),
+        ("kualitasAset kosong", is_ka_blank),
+        ("kualitasAset tidak valid", validate_kualitasAset(df['kualitas']) & ~is_ka_blank),
+        ("tanggalAkadAwal format salah", tgl_awal.isna() & ~validate_not_blank(df['tanggalAkadAwal'])),
+        ("tanggalAkadAkhir < tanggalAkadAwal", (tgl_akhir < tgl_awal) & tgl_awal.notna() & tgl_akhir.notna()),
+    ]
+
     kolom_uang = [
         'plafonAwal', 'plafon', 'bakiDebet', 
         'realisasiPencairanBulanBerjalan', 'pendapatanBungaImbalanYangAkanDiterima', 
@@ -278,8 +325,11 @@ def run_validation():
         if col not in ['cadanganKerugianPenurunanNilaiAsetBaik', 'cadanganKerugianPenurunanNilaiAsetKurangBaik', 'cadanganKerugianPenurunanNilaiAsetTidakBaik']:
             add_error(is_blank, f"Cannot insert the value NULL in column {col}")
         
-        # Cek tipe data integer (Strict)
-        add_error(~validate_numeric_only(df[col]) & ~is_blank, f"Missmatch data type in Column {col}, expected integer")
+        validations.append((f"Missmatch data type in Column {col}, expected integer", ~validate_numeric_only(df[col]) & ~is_blank))
+
+    print("Menerapkan aturan validasi...")
+    for message, condition in tqdm(validations, desc="Validasi KRP", colour="green"):
+        add_error(condition, message)
 
     # ==========================================
     # STEP 3: MENGGABUNGKAN HASIL
