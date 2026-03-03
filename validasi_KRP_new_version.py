@@ -14,8 +14,8 @@ def validate_alphanumeric(series):
     return series.astype(str).str.match(r'^[a-zA-Z0-9]+$')
 
 def validate_alphanumeric_with_hyphen(series):
-    # Memperbolehkan alphanumeric, tanda hubung (-), dan garis miring (/)
-    return series.astype(str).str.match(r'^[a-zA-Z0-9\-/]+$')
+    # Memperbolehkan alphanumeric, tanda hubung (-), garis miring (/), titik (.), dan spasi
+    return series.astype(str).str.match(r'^[a-zA-Z0-9\-/.\s]+$')
 
 def validate_numeric_only(series):
     return series.astype(str).str.match(r'^\d+$')
@@ -175,7 +175,7 @@ def run_validation():
         error_series[condition] = message
         error_list.append(error_series)
 
-    print("Melakukan validasi vectorized (Sangat Cepat)...")
+    print("Melakukan validasi vectorized ...")
     print("Mempersiapkan aturan validasi...")
 
     # --- Validasi Dasar ---
@@ -192,12 +192,12 @@ def run_validation():
     # --- nomorAkadAwal & nomorAkadAkhir ---
     is_nomorAkadAwal_blank = validate_not_blank(df['nomorAkadAwal'])
     add_error(is_nomorAkadAwal_blank, "nomorAkadAwal kosong")
-    add_error(~validate_alphanumeric_with_hyphen(df['nomorAkadAwal']) & ~is_nomorAkadAwal_blank, "nomorAkadAwal harus alphanumeric (boleh ada - atau /)")
-    add_error(df['nomorAkadAwal'].duplicated(keep=False) & ~is_nomorAkadAwal_blank, "nomorAkadAwal duplikat")
+    add_error(~validate_alphanumeric_with_hyphen(df['nomorAkadAwal']) & ~is_nomorAkadAwal_blank, "nomorAkadAwal harus alphanumeric (boleh ada - atau / atau spasi)")
+    #add_error(df['nomorAkadAwal'].duplicated(keep=True) & ~is_nomorAkadAwal_blank, "nomorAkadAwal duplikat")
     is_nomorAkadAkhir_blank = validate_not_blank(df['nomorAkadAkhir'])
     add_error(is_nomorAkadAkhir_blank, "nomorAkadAkhir kosong")
-    add_error(~validate_alphanumeric_with_hyphen(df['nomorAkadAkhir']) & ~is_nomorAkadAkhir_blank, "nomorAkadAkhir harus alphanumeric (boleh ada - atau /)")
-    add_error(df['nomorAkadAkhir'].duplicated(keep=False) & ~is_nomorAkadAkhir_blank, "nomorAkadAkhir duplikat")
+    add_error(~validate_alphanumeric_with_hyphen(df['nomorAkadAkhir']) & ~is_nomorAkadAkhir_blank, "nomorAkadAkhir harus alphanumeric (boleh ada - atau / atau spasi)")
+    #add_error(df['nomorAkadAkhir'].duplicated(keep=True) & ~is_nomorAkadAkhir_blank, "nomorAkadAkhir duplikat")
 
     # --- tanggalAkadAwal & tanggalAkadAkhir ---
     is_tglAkadAwal_blank = validate_not_blank(df['tanggalAkadAwal'])
@@ -276,11 +276,11 @@ def run_validation():
         ("nomorRekening harus alphanumeric", ~validate_alphanumeric(df['nomorRekening']) & ~is_rek_blank),
         ("nomorRekening duplikat", df['nomorRekening'].duplicated(keep=False) & ~is_rek_blank),
         ("nomorAkadAwal kosong", is_nomorAkadAwal_blank),
-        ("nomorAkadAwal harus alphanumeric (boleh ada - atau /)", ~validate_alphanumeric_with_hyphen(df['nomorAkadAwal']) & ~is_nomorAkadAwal_blank),
-        ("nomorAkadAwal duplikat", df['nomorAkadAwal'].duplicated(keep=False) & ~is_nomorAkadAwal_blank),
+        ("nomorAkadAwal harus alphanumeric (boleh ada - atau / atau spasi)", ~validate_alphanumeric_with_hyphen(df['nomorAkadAwal']) & ~is_nomorAkadAwal_blank),
+        #("nomorAkadAwal duplikat", df['nomorAkadAwal'].duplicated(keep=False) & ~is_nomorAkadAwal_blank),
         ("nomorAkadAkhir kosong", is_nomorAkadAkhir_blank),
-        ("nomorAkadAkhir harus alphanumeric (boleh ada - atau /)", ~validate_alphanumeric_with_hyphen(df['nomorAkadAkhir']) & ~is_nomorAkadAkhir_blank),
-        ("nomorAkadAkhir duplikat", df['nomorAkadAkhir'].duplicated(keep=False) & ~is_nomorAkadAkhir_blank),
+        ("nomorAkadAkhir harus alphanumeric (boleh ada - atau / atau spasi)", ~validate_alphanumeric_with_hyphen(df['nomorAkadAkhir']) & ~is_nomorAkadAkhir_blank),
+        #("nomorAkadAkhir duplikat", df['nomorAkadAkhir'].duplicated(keep=False) & ~is_nomorAkadAkhir_blank),
         ("tanggalAkadAwal kosong", is_tglAkadAwal_blank),
         ("tanggalAkadAwal tidak valid", validate_tanggal(df['tanggalAkadAwal']) & ~is_tglAkadAwal_blank),
         ("tanggalAkadAkhir kosong", is_tglAkadAkhir_blank),
@@ -337,8 +337,9 @@ def run_validation():
     print("Menggabungkan hasil validasi...")
     temp_err_df = pd.concat(error_list, axis=1)
     
-    # Join string per baris
-    df['hasil_validasi'] = temp_err_df.apply(lambda x: "; ".join(filter(None, x)), axis=1)
+    # Inisialisasi tqdm untuk pandas dan gabungkan string per baris
+    tqdm.pandas(desc="Menggabungkan pesan error")
+    df['hasil_validasi'] = temp_err_df.progress_apply(lambda x: "; ".join(filter(None, x)), axis=1)
     df['hasil_validasi'] = df['hasil_validasi'].replace("", "VALID")
 
     # Simpan
