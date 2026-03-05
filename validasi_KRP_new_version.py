@@ -131,6 +131,28 @@ def validate_sektor_ekonomi(series):
                     '970000','990000']
     return ~series.isin(valid_values)
 
+def validate_relasi_kategorPor_kualitas(kualitas_series, portofolio_series):
+    # Convert kualitas to numeric, coercing errors to NaN
+    kualitas_numeric = pd.to_numeric(kualitas_series, errors='coerce')
+    
+    # Condition 1: kualitas <= 2 and portofolio is NOT in [35, 36]
+    cond1 = (kualitas_numeric <= 2) & (~portofolio_series.isin(['35', '36']))
+    
+    # Condition 2: kualitas > 2 and portofolio is NOT in [41, 42, 54]
+    cond2 = (kualitas_numeric > 2) & (~portofolio_series.isin(['41', '42', '54']))
+    
+    # Return a boolean mask where either condition is true (indicating an error)
+    return cond1 | cond2
+
+def validate_jenispenggunaan_kategoriusahadeb(penggunaan_series, kategori_series):
+    # Logika 1 jika "jenisPenggunaan" = 3 maka "kategoriUsahaDebitur" hanya boleh terisi "NU"
+    cond1 = (penggunaan_series == '3') & (kategori_series != 'NU')
+    
+    # Logika 2 jika "jenisPenggunaan" < 3 maka "kategoriUsahaDebitur" hanya boleh terisi ["NU","UM","UK","UT"]
+    cond2 = (penggunaan_series.isin(['1', '2'])) & (~kategori_series.isin(['NU', 'UM', 'UK', 'UT']))
+    
+    return cond1 | cond2
+
 def validate_relasi_sektorEkonimi_jenisPenggunaan(sektor_series, penggunaan_series):
     # Contoh relasi: sektor tertentu hanya boleh dengan jenis penggunaan tertentu
     # Misal: sektor '001110 sd 009000' hanya boleh dengan jenis penggunaan '3'
@@ -221,11 +243,15 @@ def run_validation():
     is_kud_blank = validate_not_blank(df['kategoriUsahaDebitur'])
     add_error(is_kud_blank, "kategoriUsahaDebitur kosong")
     add_error(validate_jenisusahanDebitur(df['kategoriUsahaDebitur']) & ~is_kud_blank, "kategoriUsahaDebitur tidak valid")
-
+    
     # --- jenisPenggunaan ---
     is_jp_blank = validate_not_blank(df['jenisPenggunaan'])
     add_error(is_jp_blank, "jenisPenggunaan kosong")  
     add_error(validate_jenispenggunaan(df['jenisPenggunaan']) & ~is_jp_blank, "jenisPenggunaan tidak valid")
+
+    # --- Relasi jenisPenggunaan & kategoriUsahaDebitur ---
+    add_error(validate_jenispenggunaan_kategoriusahadeb(df['jenisPenggunaan'], df['kategoriUsahaDebitur']) & ~is_jp_blank & ~is_kud_blank, "Relasi kategorusah dengan jenis penggunaan tidak sesuai")
+
 
     # --- orientasiPenggunaan ---
     is_op_blank = validate_not_blank(df['orientasiPenggunaan'])
@@ -257,10 +283,17 @@ def run_validation():
     add_error(is_jsbi_blank, "jenisSukuBungaImbalan kosong")
     add_error(validate_jenisSukuBungaImbalan(df['jenisSukuBungaImbalan']) & ~is_jsbi_blank, "jenisSukuBungaImbalan tidak valid")
 
+    # --- kategoriPortofolio ---
+    is_kp_blank = validate_not_blank(df['kategoriPortofolio'])
+    add_error(is_kp_blank, "kategoriPortofolio kosong")
+
     # --- kualitasAset ---
     is_ka_blank = validate_not_blank(df['kualitas'])
     add_error(is_ka_blank, "kualitasAset kosong")
     add_error(validate_kualitasAset(df['kualitas']) & ~is_ka_blank, "kualitasAset tidak valid")
+
+    # --- Relasi kategoriPortofolio & kualitas ---
+    add_error(validate_relasi_kategorPor_kualitas(df['kualitas'], df['kategoriPortofolio']) & ~is_ka_blank & ~is_kp_blank, "Relasi kategoriPortofolio dengan kualitas tidak sesuai")
 
     # --- Tanggal & Math ---
     tgl_awal = pd.to_datetime(df['tanggalAkadAwal'], format='%Y-%m-%d', errors='coerce')
@@ -324,13 +357,9 @@ def run_validation():
         # Beberapa kolom mungkin boleh NULL di sistem Anda, tapi jika sesuai kode Anda tadi:
         if col not in ['cadanganKerugianPenurunanNilaiAsetBaik', 'cadanganKerugianPenurunanNilaiAsetKurangBaik', 'cadanganKerugianPenurunanNilaiAsetTidakBaik']:
             add_error(is_blank, f"Cannot insert the value NULL in column {col}")
-        
-        validations.append((f"Missmatch data type in Column {col}, expected integer", ~validate_numeric_only(df[col]) & ~is_blank))
+        add_error(~validate_numeric_only(df[col]) & ~is_blank, f"Missmatch data type in Column {col}, expected integer")
 
     print("Menerapkan aturan validasi...")
-    for message, condition in tqdm(validations, desc="Validasi KRP", colour="green"):
-        add_error(condition, message)
-
     # ==========================================
     # STEP 3: MENGGABUNGKAN HASIL
     # ==========================================
